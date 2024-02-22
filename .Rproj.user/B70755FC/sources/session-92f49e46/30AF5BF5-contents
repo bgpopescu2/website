@@ -1,0 +1,263 @@
+---
+title: "L13: Creating a Website"
+author:
+  name: Bogdan G. Popescu
+  email: bogdan.popescu@johncabot.edu
+  affiliations: John Cabot University
+  engine: knitr
+format:
+  revealjs:
+    df-print: paged
+    slide-number: c/t
+    show-slide-number: all
+    preview-links: auto
+    width: 1050
+    height: 700
+    fontsize: 24pt
+    footer: "Popescu (JCU): Lecture 13"
+    sansfont: Latin Modern Roman
+---
+
+Today, we learn how to make a website to showcase everything we have done.
+
+# Step 1: Signing Up for Github
+
+Github is a developer platform that allows developers to create, store, manage and share their code.
+
+With Github, it easy to share code with the world.
+
+It is also easy to have your Quarto website stored
+
+
+
+
+# Step to Create a Website
+
+![](graphs/step1.png){width=28%}
+
+
+
+# Step to Create a Website
+
+![](graphs/step2.png){width=28%}
+
+
+# Step to Create a Website
+
+![](graphs/step3.png){width=28%}
+
+
+
+# Step to Create a Website
+
+![](graphs/step4.png){width=28%}
+
+
+# Step to Create a Website
+
+![](graphs/step5.png){width=28%}
+
+
+# Step to Create a Website
+
+![](graphs/step6.png){width=28%}
+
+
+# Step to Create a Website
+
+![](graphs/step7.png){width=28%}
+
+
+# Step to Create a Website
+
+![](graphs/step8.png){width=28%}
+
+
+# Step to Create a Website
+
+![](graphs/step9.png){width=28%}
+
+
+# Step to Create a Website
+
+![](graphs/step10.png){width=28%}
+
+
+# Step to Create a Website
+
+![](graphs/step11.png){width=28%}
+
+
+# Step to Create a Website
+
+![](graphs/step12.png){width=28%}
+
+
+# Step to Create a Website
+
+![](graphs/step13.png){width=28%}
+
+
+# Step to Create a Website
+
+![](graphs/step14.png){width=28%}
+
+
+# Step to Create a Website
+
+![](graphs/step15.png){width=28%}
+
+
+# Step to Create a Website
+
+![](graphs/step16.png){width=28%}
+
+
+# Step to Create a Website
+
+![](graphs/step17.png){width=28%}
+
+# Step to Create a Website
+
+![](graphs/step17.png){width=28%}
+
+# Step to Create a Website
+
+![](graphs/step18.png){width=28%}
+
+# Step to Create a Website
+
+![](graphs/step19.png){width=28%}
+
+
+# Step to Create a Website
+
+![](graphs/step20.png){width=28%}
+
+# Step to Create a Website
+
+![](graphs/step21.png){width=28%}
+
+# Step to Create a Website
+
+![](graphs/step22.png){width=28%}
+
+# Step to Create a Website
+
+![](graphs/step23.png){width=28%}
+
+# Step to Create a Website
+
+![](graphs/step24.png){width=28%}
+
+
+# Step to Create a Website
+
+![](graphs/step25.png){width=28%}
+
+
+
+# Step to Create a Website
+
+![](graphs/step26.png){width=28%}
+
+
+
+# Step to Create a Website
+
+![](graphs/step27.png){width=28%}
+
+
+# Step to Create a Website
+
+![](graphs/step28.png){width=28%}
+
+# Step to Create a Website
+
+![](graphs/step29.png){width=28%}
+
+
+# Step to Create a Website
+
+* We now need to add a .nojekyll file to the root of our repository
+
+* This tells GitHub Pages not to do additional processing of your published site using Jekyll
+
+
+**Mac**\
+```{bash}
+touch .nojekyll
+```
+
+
+**Windows**\
+```{bash}
+copy NUL .nojekyll
+```
+
+
+# Step to Create a Website
+
+You should now see your website in on of your computer
+
+![](graphs/folders.png){width=28%}
+
+
+# Step to Create a Website
+
+If you're not comfortable with where it is, place it somewhere where you feel more confortable with having it
+
+![](graphs/folders.png){width=28%}
+
+
+# Step to Create a Website
+
+In my case, I move it to my Dropbox folder, so that I can see it easier.
+
+![](graphs/folders.png){width=28%}
+
+
+
+
+# Creating a Website
+
+We now can create a Github account.
+
+Sign up at [Github](https://github.com/){target="_blank"}
+
+
+# Download GitHub Desktop
+
+Next, go to [GitHub Desktop](https://desktop.github.com){target="_blank"}
+
+This will be the (friendly) means of communication between GitHub and your computer
+
+This means that you first make those changes on your computer
+
+You will then upload those changes to GitHub, which hosts your website
+
+
+# Download GitHub Desktop
+
+Download [GitHub Desktop](https://desktop.github.com){target="_blank"} and install it on your machine
+
+![](graphs/github_desktop.png){width=28%}
+
+
+# GitHub Desktop
+
+After you have installed GitHub Desktop, sign in
+
+![](graphs/github_desktop2.png){width=28%}
+
+
+# GitHub Desktop
+
+Authorize the app - "GitHub Desktop" to access your GitHub account
+
+![](graphs/github_desktop2.png){width=28%}
+
+
+
+
+

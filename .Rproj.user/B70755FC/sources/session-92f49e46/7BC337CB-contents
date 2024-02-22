@@ -1,0 +1,2163 @@
+---
+title: "11: Fundamentals of Mapping"
+subtitle: "Points, Lines, Polygons, and Choropleth Maps"
+author:
+  name: Bogdan G. Popescu
+  email: bogdan.popescu@johncabot.edu
+  affiliations: John Cabot University
+format:
+  revealjs:
+    slide-number: c/t
+    show-slide-number: all
+    preview-links: auto
+    width: 1050
+    height: 700
+    fontsize: 24pt
+    footer: "Popescu (JCU): Lecture 11"
+    sansfont: Latin Modern Roman
+    embed-resources: true
+    includes:
+      before_body: preamble-mathjax.tex
+---
+
+# Mapping
+
+Previously, we looked at using ggplot to plot different objects
+
+We will go over mapping objects once again.
+
+
+# Mapping
+
+First, download all the files and put them in the relevant folder:
+
+* [Geodatabase with features](https://www.dropbox.com/scl/fo/6hvm4cvzsioxjhsb1et4h/h?rlkey=qespcv77obqw1nj37cszzhu9s&dl=0){target="_blank"}
+
+* [Restaurants dataset](https://www.dropbox.com/scl/fi/81tptv295c9jvwifb4mvw/restaurant.geojson?rlkey=z6jp4ohzxz6muw00f31ev8854&dl=0){target="_blank"}
+
+* [Life Expectancy Data](https://www.dropbox.com/scl/fi/mov6aepbhht7i5tq627ph/life-expectancy.csv?rlkey=i78qnrk5hbl8hsqcl2igzdyuz&dl=0){target="_blank"}
+
+* [World Shapefile](https://www.dropbox.com/scl/fo/sicrsek31pim4nb3pzeea/h?rlkey=ooqm9kaz036baa8fi6dfaxei6&dl=0){target="_blank"}
+
+
+# Your folder {auto-animate="true"}
+
+This what they should look like on your computer.
+
+![](figures/your_folder.png){width=28%}
+
+# Your folder {auto-animate="true" visibility="uncounted"}
+
+Note that `selection.gdb` and `world_shp` should be separate folders
+
+![](figures/your_folder1.png){width=28%}
+
+
+
+
+# Your folder {auto-animate="true" visibility="uncounted"}
+
+Note that `selection.gdb` and `world_shp` should be separate folders
+
+![](figures/your_folder2.png){width=28%}
+
+
+# Mapping
+
+We will first map points, lines, and polygons
+
+We will then map then together
+
+We will then make a map that is visually appealing and which contains a variety of elements and options
+
+
+# Mapping
+
+This is how we first read our data:
+
+```{r echo=TRUE}
+#| code-line-numbers: "1-5|6-9|10-13|14-17|18-21"
+#Step1: Loading the libraries
+library(sf)
+library(geojsonsf)
+library(ggplot2)
+
+#Step2: Reading the lines
+gis_osm_roads <- st_read(dsn="./data/selection.gdb",
+                         layer="gis_osm_roads", quiet = T)
+
+#Step3: Reading the polygons
+gis_buildings <- st_read(dsn="./data/selection.gdb",
+                         layer="gis_osm_buildings", quiet = T)
+
+#Step4: Reading points
+restaurants <- geojson_sf("./data/restaurant.geojson")
+restaurants<-subset(restaurants, select = c(name, `addr:street`))
+restaurants2<-subset(restaurants, !is.na(restaurants$name) | !is.na(restaurants$`addr:street`) )
+```
+
+
+# Mapping lines
+
+```{r echo=TRUE}
+ggplot()+
+  geom_sf(data=gis_osm_roads)
+```
+
+
+# Mapping polygons
+
+```{r echo=TRUE}
+ggplot()+
+  geom_sf(data=gis_buildings)
+```
+
+
+# Mapping points
+
+```{r echo=TRUE}
+ggplot()+
+  geom_sf(data=restaurants2)
+```
+
+
+# Mapping Everything
+
+As you might have guessed, this is GIS data covering central Rome
+
+If we add them together, we can obtain the following map
+
+
+```{r echo=FALSE, warning=FALSE}
+#Step1: Loading the relevant library
+library(stringr)
+#Step2: Choosing a geographuc point
+jcu <- subset(gis_buildings, name=="John Cabot University - Tiber Campus")
+#Step3: Extracting the centroid of the geometry
+jcu$lonlat<-st_centroid(st_geometry(jcu))
+#Step4: Splitting the name of the centroid variable into two
+jcu[c('lon_x', 'lat_y')]<-str_split_fixed(jcu$lonlat, ",", 2)
+#Step5: Making the variables numeric and removing extraneous particles
+jcu$lat_y<-as.numeric(str_replace(jcu$lat_y, "\\)", ""))
+jcu$lon_x<-as.numeric(str_replace(jcu$lon_x, "c\\(", ""))
+#Step6: Deciding on an error
+error<-0.008
+#Step7: Taking the min/max lat/lon and adding/subtracting error
+min_lon_x<-min(jcu$lon_x-error)
+max_lon_x<-max(jcu$lon_x+error)
+
+min_lat_y<-min(jcu$lat_y-error)
+max_lat_y<-max(jcu$lat_y+error)
+
+
+ggplot() +
+  # Mapping roads
+  geom_sf(data = gis_osm_roads, aes(color = "Roads"), size = 0.8, alpha = 0.5, show.legend = "line") +
+  # Mapping buildings
+  geom_sf(data = gis_buildings, aes(fill = "Buildings"), alpha = 0.5) +
+  # Mapping restaurants
+  geom_sf(data = restaurants2, aes(shape = "Restaurants"), color="red", fill="red",
+          show.legend = "point") +
+  # Making buildings orange
+  scale_fill_manual(name = "", 
+                    values = c("Buildings" = "orange"), 
+                    guide = guide_legend(override.aes = list(linetype = c("blank"), 
+                                                             shape = NA))) +
+  # Making roads blue
+  scale_color_manual(name = "", 
+                     values = c("Roads" = "steelblue"), 
+                     guide = guide_legend(override.aes = list(linetype = c("solid"),
+                                                              shape = c(NA)))) +
+  # Making restaurants diamonds
+  scale_shape_manual(name = "", 
+                     values = c("Restaurants" = 23),
+                     guide = guide_legend(override.aes = list(linetype = c("blank"))))+
+  theme_bw() +
+  # Zoom coordinates
+  coord_sf(xlim = c(min_lon_x - error, max_lon_x + error), 
+           ylim = c(min_lat_y - error, max_lat_y + error))+
+  # Adding scale
+  ggspatial::annotation_scale(location = 'tr')+
+  # Adding North arrow
+  ggspatial::annotation_north_arrow(which_north = "true", location = "bl")
+  #theme(legend.box.background = element_rect(fill = "white", color = "black"))
+```
+
+# Mapping Everything {visibility="uncounted"}
+
+This how can can make that map.
+
+Part one is about identifying a relevant zoom level.
+
+```{r echo=TRUE, warning=FALSE}
+#| code-line-numbers: "1-2|3-4|5-6|7-8|9-11|12-13|14-19"
+#Step1: Loading the relevant library
+library(stringr)
+#Step2: Choosing a geographuc point
+jcu <- subset(gis_buildings, name=="John Cabot University - Tiber Campus")
+#Step3: Extracting the centroid of the geometry
+jcu$lonlat<-st_centroid(st_geometry(jcu))
+#Step4: Splitting the name of the centroid variable into two
+jcu[c('lon_x', 'lat_y')]<-str_split_fixed(jcu$lonlat, ",", 2)
+#Step5: Making the variables numeric and removing extraneous particles
+jcu$lat_y<-as.numeric(str_replace(jcu$lat_y, "\\)", ""))
+jcu$lon_x<-as.numeric(str_replace(jcu$lon_x, "c\\(", ""))
+#Step6: Deciding on an error
+error<-0.008
+#Step7: Taking the min/max lat/lon and adding/subtracting error
+min_lon_x<-min(jcu$lon_x-error)
+max_lon_x<-max(jcu$lon_x+error)
+
+min_lat_y<-min(jcu$lat_y-error)
+max_lat_y<-max(jcu$lat_y+error)
+```
+
+
+# Mapping Everything {visibility="uncounted"}
+
+This how can can make that map.
+
+Part two is about the map itself:
+
+```{r echo=TRUE, warning=FALSE}
+#| code-line-numbers: "1-3|4-5|6-7|8-12|13-17|18-21|22|23-25|26-27|28-29"
+ggplot() +
+  # Mapping roads
+  geom_sf(data = gis_osm_roads, aes(color = "Roads"), size = 0.8, alpha = 0.5, show.legend = "line") +
+  # Mapping buildings
+  geom_sf(data = gis_buildings, aes(fill = "Buildings"), alpha = 0.5) +
+  # Mapping restaurants
+  geom_sf(data = restaurants2, aes(shape = "Restaurants"), color="red", fill="red", show.legend = "point") +
+  # Making buildings orange
+  scale_fill_manual(name = "", 
+                    values = c("Buildings" = "orange"), 
+                    guide = guide_legend(override.aes = list(linetype = c("blank"), 
+                                                             shape = NA))) +
+  # Making roads blue
+  scale_color_manual(name = "", 
+                     values = c("Roads" = "steelblue"), 
+                     guide = guide_legend(override.aes = list(linetype = c("solid"),
+                                                              shape = c(NA)))) +
+  # Making restaurants diamonds
+  scale_shape_manual(name = "", 
+                     values = c("Restaurants" = 23),
+                     guide = guide_legend(override.aes = list(linetype = c("blank"))))+
+  theme_bw() +
+  # Zoom coordinates
+  coord_sf(xlim = c(min_lon_x - error, max_lon_x + error), 
+           ylim = c(min_lat_y - error, max_lat_y + error))+
+  # Adding scale
+  ggspatial::annotation_scale(location = 'tr')+
+  # Adding North arrow
+  ggspatial::annotation_north_arrow(which_north = "true", location = "bl")
+```
+
+::: footer
+
+:::
+
+# Mapping Everything {visibility="uncounted"}
+
+This how can can make that map.
+
+Part two is about the map itself:
+
+```{r echo=FALSE, warning=FALSE}
+ggplot() +
+  # Mapping roads
+  geom_sf(data = gis_osm_roads, aes(color = "Roads"), size = 0.8, alpha = 0.5, show.legend = "line") +
+  # Mapping buildings
+  geom_sf(data = gis_buildings, aes(fill = "Buildings"), alpha = 0.5) +
+  # Mapping restaurants
+  geom_sf(data = restaurants2, aes(shape = "Restaurants"), color="red", fill="red", show.legend = "point") +
+  # Making buildings orange
+  scale_fill_manual(name = "", 
+                    values = c("Buildings" = "orange"), 
+                    guide = guide_legend(override.aes = list(linetype = c("blank"), 
+                                                             shape = NA))) +
+  # Making roads blue
+  scale_color_manual(name = "", 
+                     values = c("Roads" = "steelblue"), 
+                     guide = guide_legend(override.aes = list(linetype = c("solid"),
+                                                              shape = c(NA)))) +
+  # Making restaurants diamonds
+  scale_shape_manual(name = "", 
+                     values = c("Restaurants" = 23),
+                     guide = guide_legend(override.aes = list(linetype = c("blank"))))+
+  theme_bw() +
+  # Zoom coordinates
+  coord_sf(xlim = c(min_lon_x - error, max_lon_x + error), 
+           ylim = c(min_lat_y - error, max_lat_y + error))+
+  # Adding scale
+  ggspatial::annotation_scale(location = 'tr')+
+  # Adding North arrow
+  ggspatial::annotation_north_arrow(which_north = "true", location = "bl")
+  #theme(legend.box.background = element_rect(fill = "white", color = "black"))
+```
+
+
+# Mapping Everything {visibility="uncounted"}
+
+As you might imagine, there are are variety of options to represent points, lines, and polygons
+
+At the most basic level, you can change the symbols for points, the color for lines and shape of polygons, the fill color for polygons, etc.
+
+```{r echo=FALSE, warning=FALSE}
+ggplot() +
+  # Mapping roads
+  geom_sf(data = gis_osm_roads, aes(color = "Roads"), size = 0.8, alpha = 0.5, show.legend = "line") +
+  # Mapping buildings
+  geom_sf(data = gis_buildings, aes(fill = "Buildings"), alpha = 0.5) +
+  # Mapping restaurants
+  geom_sf(data = restaurants2, aes(shape = "Restaurants"), color="red", fill="red", show.legend = "point") +
+  # Making buildings orange
+  scale_fill_manual(name = "", 
+                    values = c("Buildings" = "orange"), 
+                    guide = guide_legend(override.aes = list(linetype = c("blank"), 
+                                                             shape = NA))) +
+  # Making roads blue
+  scale_color_manual(name = "", 
+                     values = c("Roads" = "steelblue"), 
+                     guide = guide_legend(override.aes = list(linetype = c("solid"),
+                                                              shape = c(NA)))) +
+  # Making restaurants diamonds
+  scale_shape_manual(name = "", 
+                     values = c("Restaurants" = 23),
+                     guide = guide_legend(override.aes = list(linetype = c("blank"))))+
+  theme_bw() +
+  # Zoom coordinates
+  coord_sf(xlim = c(min_lon_x - error, max_lon_x + error), 
+           ylim = c(min_lat_y - error, max_lat_y + error))+
+  # Adding scale
+  ggspatial::annotation_scale(location = 'tr')+
+  # Adding North arrow
+  ggspatial::annotation_north_arrow(which_north = "true", location = "bl")
+  #theme(legend.box.background = element_rect(fill = "white", color = "black"))
+```
+
+
+
+# Choropleth Maps
+
+::: fragment
+-   The first component of Spatial Data is simply making maps
+:::
+
+::: fragment
+-   A choropleth map is a thematic map used to represent statistical data, where regions are colored in relation to a data variable
+:::
+
+::: fragment
+-   Here is for example what avearge life expectancy from 1900 untill the present day looks like
+:::
+
+```{r echo=FALSE}
+#Step1: Loading libraries
+library("dplyr")
+library("sf")
+library("ggplot2")
+
+#Step2: Loading the data
+life_expectancy <- read.csv(file = './data/life-expectancy.csv')
+
+#Step3: Subsetting the data above the year 1900
+life_expectancy<-subset(life_expectancy, Year>1900)
+
+#Step4: Calculating average life expectancy by county 
+life_expectancy2<-life_expectancy%>%
+  group_by(Code, Entity)%>%
+  summarize(life_expectancy=mean(Life.expectancy.at.birth..historical.))
+
+#Step5: Removing countries with not code
+life_expectancy3<-subset(life_expectancy2, life_expectancy2$Code!="")
+
+#Step6: Reading shape files
+world <- read_sf(dsn = "./data/world_shp/world.shp")
+merged<-left_join(world, life_expectancy3, by = c("adm0_a3" = "Code"))
+#glimpse(merged)
+
+#Step7: Mapping
+ggplot() +
+    geom_sf() +
+    geom_sf(data = merged, aes(fill = life_expectancy))+
+    scale_fill_gradient(name = "Life Expectancy", low = "lightblue", high = "darkblue")
+```
+
+# Mapping Spatial Data
+
+This how we can make this map.
+
+First, we need to download the life expectancy data and world polygons:
+
+-   Dataset 1 - [Life expectancy data](https://www.dropbox.com/scl/fi/mov6aepbhht7i5tq627ph/life-expectancy.csv?rlkey=i78qnrk5hbl8hsqcl2igzdyuz&dl=0){target="_blank"}
+
+-   Dataset 2 - [World polygons](https://www.dropbox.com/scl/fo/sicrsek31pim4nb3pzeea/h?rlkey=ooqm9kaz036baa8fi6dfaxei6&dl=0){target="_blank"}
+
+Place it a data folder within the relevant week.
+
+# Mapping Spatial Data
+
+This is the code to obtain the map.
+
+```{r echo=TRUE}
+#| code-line-numbers: "1-5|6-8|9-11|12-16|17-19|20-22|23-28"
+#Step1: Loading libraries
+library("dplyr")
+library("sf")
+library("ggplot2")
+
+#Step2: Loading the data
+life_expectancy <- read.csv(file = './data/life-expectancy.csv')
+
+#Step3: Subsetting the data above the year 1900
+life_expectancy<-subset(life_expectancy, Year>1900)
+
+#Step4: Calculating average life expectancy by county 
+life_expectancy2<-life_expectancy%>%
+  group_by(Code, Entity)%>%
+  summarize(life_expectancy=mean(Life.expectancy.at.birth..historical.))
+
+#Step5: Removing countries with not code
+life_expectancy3<-subset(life_expectancy2, life_expectancy2$Code!="")
+
+#Step6: Reading shape files
+world <- read_sf(dsn = "./data/world_shp/world.shp")
+merged<-left_join(world, life_expectancy3, by = c("adm0_a3" = "Code"))
+
+#Step7: Mapping
+ggplot() +
+    geom_sf() +
+    geom_sf(data = merged, aes(fill = life_expectancy))+
+    scale_fill_gradient(name = "Life Expectancy", low = "lightblue", high = "darkblue")
+```
+
+
+# Mapping Spatial Data
+
+```{r}
+ggplot() +
+    geom_sf() +
+    geom_sf(data = merged, aes(fill = life_expectancy))+
+    scale_fill_gradient(name = "Life Expectancy", low = "lightblue", high = "darkblue")
+```
+
+What we can see here are the black polygons which are filled in blue.
+
+-   Darker shades of blue indicate lower life expectancy.
+
+-   Lighter shades of blue indicate higher life expectancy.
+
+# Mapping Spatial Data
+
+It turns out that that this color scheme is not the best to make choropleth maps.
+
+`scale_fill_viridis_c` option comes to help with a variety of options
+
+# Mapping Spatial Data: magma {visibility="uncounted"}
+
+```{r echo=TRUE}
+ggplot() +
+    geom_sf() +
+    geom_sf(data = merged, aes(fill = life_expectancy))+
+    scale_fill_viridis_b(name = "Life Expectancy", option = "magma")
+```
+
+# Mapping Spatial Data: inferno {visibility="uncounted"}
+
+```{r echo=TRUE}
+ggplot() +
+    geom_sf() +
+    geom_sf(data = merged, aes(fill = life_expectancy))+
+    scale_fill_viridis_b(name = "Life Expectancy", option = "inferno")
+```
+
+# Mapping Spatial Data: plasma {visibility="uncounted"}
+
+```{r echo=TRUE}
+ggplot() +
+    geom_sf() +
+    geom_sf(data = merged, aes(fill = life_expectancy))+
+    scale_fill_viridis_b(name = "Life Expectancy", option = "plasma")
+```
+
+# Mapping Spatial Data: viridis {visibility="uncounted"}
+
+```{r echo=TRUE}
+ggplot() +
+    geom_sf() +
+    geom_sf(data = merged, aes(fill = life_expectancy))+
+    scale_fill_viridis_b(name = "Life Expectancy", option = "viridis")
+```
+
+# Mapping Spatial Data: cividis {visibility="uncounted"}
+
+```{r echo=TRUE}
+ggplot() +
+    geom_sf() +
+    geom_sf(data = merged, aes(fill = life_expectancy))+
+    scale_fill_viridis_b(name = "Life Expectancy", option = "cividis")
+```
+
+# Mapping Spatial Data: rocket {visibility="uncounted"}
+
+```{r echo=TRUE}
+ggplot() +
+    geom_sf() +
+    geom_sf(data = merged, aes(fill = life_expectancy))+
+    scale_fill_viridis_b(name = "Life Expectancy", option = "rocket")
+```
+
+# Mapping Spatial Data: mako {visibility="uncounted"}
+
+```{r echo=TRUE}
+ggplot() +
+    geom_sf() +
+    geom_sf(data = merged, aes(fill = life_expectancy))+
+    scale_fill_viridis_b(name = "Life Expectancy", option = "mako")
+```
+
+# Mapping Spatial Data: turbo {visibility="uncounted"}
+
+```{r echo=TRUE}
+ggplot() +
+    geom_sf() +
+    geom_sf(data = merged, aes(fill = life_expectancy))+
+    scale_fill_viridis_b(name = "Life Expectancy", option = "turbo")
+```
+
+# Statistical Maps
+
+-   The most common maps are choropleth maps, which show variability of a variable over one region
+
+-   It is however important to understand how the assignment to colors is made
+
+```{r}
+ggplot() +
+    geom_sf() +
+    geom_sf(data = merged, aes(fill = life_expectancy))+
+    scale_fill_gradient(name = "Life Expectancy", low = "lightblue", high = "darkblue")
+```
+
+# Statistical Maps
+
+```{r}
+ggplot() +
+    geom_sf() +
+    geom_sf(data = merged, aes(fill = life_expectancy))+
+    scale_fill_gradient(name = "Life Expectancy", low = "lightblue", high = "darkblue")
+```
+
+-   In the choropleth map above, we see that the continuous variable, which is life expectancy, got reduced to discrete entities.
+
+-   Making values discrete values from continuous means that we are assigning those values to bins.
+
+-   For example, all countries that have and average life a life expectancy of 70 to 80, get assigned to one value
+
+# Statistical Maps
+
+We can create a map with colors that follow the distribution of our data.
+
+Let us first create a histogram with our life expectancy data.
+
+The following should be out 10 equal breaks (bins) for the histogram.
+
+```{r echo=TRUE}
+library(classInt)
+# Creating 10 equal intervals within the variable
+clint <- classIntervals(merged$life_expectancy, style = "equal", n = 10)$brks
+clint
+```
+
+# Statistical Maps
+
+The next step is to use ggplot to create the histogram
+
+```{r echo=TRUE, eval=FALSE}
+#| code-line-numbers: "1|2-3|4-5|6-7|8-9|10-11|12-13"
+ggplot(merged, aes(life_expectancy)) + 
+  #including breaks for the histogram
+  geom_histogram(breaks = clint, col="white")+
+  #indicating min, median, and max on x-axis
+  scale_x_continuous(breaks = c(min(clint), median(clint), max(clint)))+
+  #removing all the ticks on the y axis
+  scale_y_continuous(labels = NULL)+
+  #removing the x and y labels
+  ylab(NULL) +xlab(NULL)+
+  #flipping coordinates: x become y and y becomes x
+  coord_flip()
+```
+
+# Statistical Maps
+
+This code produces the following graph:
+
+```{r echo=FALSE, eval=TRUE}
+p2<-ggplot(merged, aes(life_expectancy)) + 
+  #including breaks for the histogram
+  geom_histogram(breaks = clint, col="white")+
+  #indicating min, median, and max on x-axis
+  # position = "top" ensures that the breaks and labels align with the x-axis at the top.
+  scale_x_continuous(breaks = c(min(clint), median(clint), max(clint)), position = "top") + 
+  #removing all the ticks on the y axis
+  scale_y_continuous(labels = NULL, breaks = NULL)+
+  #removing the x and y labels
+  ylab(NULL) +xlab(NULL)+
+  #flipping coordinates: x become y and y becomes x
+  coord_flip()+
+   theme(plot.margin = margin(0.1,0,0,0.1, "in"),
+         axis.text = element_text(colour = "grey"),
+         panel.background = element_blank())
+
+p2
+```
+
+# Statistical Maps {auto-animate="true"}
+
+We can use the same histogram to create colors for ggplot.
+
+But we first need to do some transformations:
+
+# Statistical Maps {auto-animate="true" visibility="uncounted"}
+
+We can use the same histogram to create colors for ggplot.
+
+But we first need to do some transformations:
+
+```{r echo=TRUE}
+clint <- classIntervals(merged$life_expectancy, style = "equal", n = 10)$brks
+```
+
+# Statistical Maps {auto-animate="true" visibility="uncounted"}
+
+We can use the same histogram to create colors for ggplot.
+
+But we first need to do some transformations:
+
+```{r echo=TRUE}
+clint <- classIntervals(merged$life_expectancy, style = "equal", n = 10)$brks
+clint
+```
+
+# Statistical Maps {auto-animate="true" visibility="uncounted"}
+
+We can use the same histogram to create colors for ggplot.
+
+But we first need to do some transformations:
+
+```{r echo=TRUE}
+#Identifying vector length
+number_values<-length(clint)
+```
+
+# Statistical Maps {auto-animate="true" visibility="uncounted"}
+
+We can use the same histogram to create colors for ggplot.
+
+But we first need to do some transformations:
+
+```{r echo=TRUE}
+#Identifying vector length
+number_values<-length(clint)
+number_values
+```
+
+# The Map
+
+This is the map that we want to obtain:
+
+```{r}
+p1<-ggplot(merged, aes(fill = life_expectancy)) + 
+  geom_sf() + 
+  theme_void() +
+  scale_fill_viridis_c(option = "viridis", # You can choose other options like "A", "B", or "D"
+                       direction = -1,   # Use -1 for reverse color order if needed
+                       breaks = clint,
+                       guide = guide_coloursteps(even.steps = FALSE,
+                                                 show.limits = TRUE,
+                                                 title = NULL,
+                                                 barheight = unit(5.3, "cm"),
+                                                 barwidth = unit(0.64, "cm"),
+                                                 label.position = "left"))
+p1
+```
+
+# The Map
+
+The following code allows us to obtain the map
+
+```{r echo=TRUE}
+#| code-line-numbers: "1-8|9|10-18"
+library(ggplot2)
+library(viridis)
+
+p1<-ggplot(merged, aes(fill = life_expectancy)) + 
+  geom_sf() + 
+  theme_void() +
+  scale_fill_viridis_c(option = "viridis",
+                       direction = -1,
+                       breaks = clint,
+                       guide = guide_coloursteps(even.steps = FALSE,
+                                                 show.limits = TRUE,
+                                                 title = NULL,
+                                                 barheight = unit(5.3, "cm"),
+                                                 barwidth = unit(0.64, "cm"),
+                                                 label.position = "left"))
+```
+
+
+# The Map with the Histogram
+
+```{r, fig.width = 6.5, fig.height=2.4, echo=TRUE}
+library(gridExtra)
+grid.arrange(p1, p2,layout_matrix=rbind(c(1,1,1,2)))
+```
+
+
+# The Map with the Histogram {auto-animate="true" visibility="uncounted"}
+
+```{r, fig.width = 6.5, fig.height=2.4, echo=TRUE}
+library(gridExtra)
+pic<-grid.arrange(p1, p2,layout_matrix=rbind(c(1,1,1,2)))
+```
+
+Note that you need to add an option to the chunk to get the map and histogram alligned:
+
+````markdown
+`r ''````{r , fig.width = 6.5, fig.height=2.4}
+library(gridExtra)
+pic<-grid.arrange(p1, p2,layout_matrix=rbind(c(1,1,1,2)))
+`r ''````
+````
+
+# The Map with the Histogram {auto-animate="true" visibility="uncounted"}
+
+```{r, fig.width = 6.5, fig.height=2.4, echo=TRUE}
+library(gridExtra)
+grid.arrange(p1, p2,layout_matrix=rbind(c(1,1,1,2)))
+```
+
+Note that you need to add an option to the chunk to get the map and histogram alligned:
+
+````markdown
+`r ''````{r , fig.width = 6.5, fig.height=2.4}
+library(gridExtra)
+pic<-grid.arrange(p1, p2,layout_matrix=rbind(c(1,1,1,2)))
+`r ''````
+````
+
+To save the picture as a jpeg, you need to run the following code:
+
+```{r, echo=TRUE, eval=FALSE}
+#The following code is to save the map in your working folder
+pic<-grid.arrange(p1, p2,layout_matrix=rbind(c(1,1,1,2)))
+ggsave("./figx.jpg", plot = pic, height = 6, width = 20, units = "cm", dpi = 300)
+```
+
+
+# Quantile Maps
+
+-   An equal interval map benefits from its intuitiveness
+
+-   It may not be well suited for a type of data, that is not uniformly distributed
+
+-   **Quantiles** define ranges of values that have equal number of observations.
+
+# Quantile Maps
+
+-   The following plot groups the data into six quantiles with each quantile representing the same number of observations
+
+```{r fig.width = 6.5, fig.height=2.4, echo=FALSE}
+clint <- classIntervals(merged$life_expectancy, style = "quantile", n = 6)$brks
+
+p1<-ggplot(merged, aes(fill=life_expectancy)) + geom_sf() + theme_void() +
+  scale_fill_viridis_c(option = "viridis", # You can choose other options like "A", "B", or "D"
+                       direction = -1,   # Use -1 for reverse color order if needed
+                       breaks = clint,
+                       guide = guide_coloursteps(even.steps = FALSE,
+                                                 show.limits = TRUE,
+                                                 title = NULL,
+                                                 barheight = unit(5.3, "cm"),
+                                                 barwidth = unit(0.64, "cm"),
+                                                 label.position = "left"))
+
+
+p2<- ggplot(merged, aes(life_expectancy)) + 
+  geom_histogram(breaks = clint, col="white") + 
+  scale_x_continuous(breaks = c(min(clint), median(clint), max(clint)),position = "top") + 
+  coord_flip() + 
+  scale_y_continuous(labels = NULL, breaks = NULL) +
+  ylab(NULL) +xlab(NULL) +
+   theme(plot.margin = margin(0.1,0,0,0.1, "in"),
+         axis.text = element_text(colour = "grey"),
+         panel.background = element_blank())
+
+
+grid.arrange(p1,p2, layout_matrix=rbind(c(1,1,1,2)))
+```
+
+# Quantile Maps
+
+```{r fig.width = 6.5, fig.height=2.4, echo=FALSE}
+clint <- classIntervals(merged$life_expectancy, style = "quantile", n = 6)$brks
+
+p1<-ggplot(merged, aes(fill=life_expectancy)) + geom_sf() + theme_void() +
+  scale_fill_viridis_c(option = "viridis", # You can choose other options like "A", "B", or "D"
+                       direction = -1,   # Use -1 for reverse color order if needed
+                       breaks = clint,
+                       guide = guide_coloursteps(even.steps = FALSE,
+                                                 show.limits = TRUE,
+                                                 title = NULL,
+                                                 barheight = unit(5.3, "cm"),
+                                                 barwidth = unit(0.64, "cm"),
+                                                 label.position = "left"))
+
+
+p2<- ggplot(merged, aes(life_expectancy)) + geom_histogram(breaks = clint, col="white") + 
+  scale_x_continuous(breaks = c(min(clint), median(clint), max(clint)),position = "top") + 
+  coord_flip() + scale_y_continuous(labels = NULL, breaks = NULL) +
+  ylab(NULL) +xlab(NULL) +
+   theme(plot.margin = margin(0.1,0,0,0.1, "in"),
+         axis.text = element_text(colour = "grey"),
+         panel.background = element_blank())
+
+
+grid.arrange(p1,p2, layout_matrix=rbind(c(1,1,1,2)))
+```
+
+-   The color swatch lengths in the color bar reflects the different ranges of values covered by each color swatch.
+
+-   The lightest color swatch covers the largest range of values
+
+-   Yet it is applied to the same number of polygons as most other color swatches in this classification scheme
+
+
+# Quantile Maps {auto-animate="true"}
+
+
+These are the steps to produce the same map:
+
+
+# Quantile Maps {auto-animate="true" visibility="uncounted"}
+
+These are the steps to produce the same map:
+
+```{r echo=TRUE, eval = FALSE}
+#This to produce the interval
+clint <- classIntervals(merged$life_expectancy, style = "quantile", n = 6)$brks
+```
+
+
+# Quantile Maps {auto-animate="true" visibility="uncounted"}
+
+These are the steps to produce the same map:
+
+```{r echo=TRUE, eval = TRUE}
+#This to produce the interval
+clint <- classIntervals(merged$life_expectancy, style = "quantile", n = 6)$brks
+clint
+```
+
+
+# Quantile Maps {auto-animate="true" visibility="uncounted"}
+
+These are the steps to produce the same map:
+
+```{r echo=TRUE, eval = TRUE}
+#This to produce the interval
+clint <- classIntervals(merged$life_expectancy, style = "quantile", n = 6)$brks
+#Identifying vector length
+number_values<-length(clint)
+number_values
+```
+
+
+
+
+# Quantile Maps {auto-animate="true" visibility="uncounted"}
+
+These are the steps to produce the same map:
+
+```{r echo=TRUE, eval = TRUE}
+#This to produce the interval
+clint <- classIntervals(merged$life_expectancy, style = "quantile", n = 6)$brks
+#Identifying vector length
+number_values<-length(clint)
+```
+
+
+
+# Quantile Maps
+
+We are now ready to produce the map:
+
+```{r echo=TRUE, eval = FALSE, fig.width = 6.5, fig.height=2.4}
+#| code-line-numbers: "1-13|14-23|24-25"
+#This is to produce the map
+p1<-ggplot(merged, aes(fill=life_expectancy)) + 
+  geom_sf() + theme_void() +
+  scale_fill_viridis_c(option = "viridis", # You can choose other options like "A", "B", or "D"
+                       direction = -1,   # Use -1 for reverse color order if needed
+                       breaks = clint,
+                       guide = guide_coloursteps(even.steps = FALSE,
+                                                 show.limits = TRUE,
+                                                 title = NULL,
+                                                 barheight = unit(5.3, "cm"),
+                                                 barwidth = unit(0.64, "cm"),
+                                                 label.position = "left"))
+
+#This is to produce the histogram
+p2<- ggplot(merged, aes(life_expectancy)) + 
+  geom_histogram(breaks = clint, col="white") + 
+  scale_x_continuous(breaks = c(min(clint), median(clint), max(clint)),position = "top") + 
+  coord_flip() + scale_y_continuous(labels = NULL, breaks = NULL) +
+  ylab(NULL) +xlab(NULL) +
+   theme(plot.margin = margin(0.1,0,0,0.1, "in"),
+         axis.text = element_text(colour = "grey"),
+         panel.background = element_blank())
+
+#This is to arrange them together in the same graph
+grid.arrange(p1,p2, layout_matrix=rbind(c(1,1,1,2)))
+```
+
+# Quantile Maps {visibility="uncounted"}
+
+We are now ready to produce the map:
+
+```{r echo=TRUE, eval = TRUE, fig.width = 6.5, fig.height=2.4}
+#This is to produce the map
+p1<-ggplot(merged, aes(fill=life_expectancy)) + 
+  geom_sf() + theme_void() +
+  scale_fill_viridis_c(option = "viridis", # You can choose other options like "A", "B", or "D"
+                       direction = -1,   # Use -1 for reverse color order if needed
+                       breaks = clint,
+                       guide = guide_coloursteps(even.steps = FALSE,
+                                                 show.limits = TRUE,
+                                                 title = NULL,
+                                                 barheight = unit(5.3, "cm"),
+                                                 barwidth = unit(0.64, "cm"),
+                                                 label.position = "left"))
+
+#This is to produce the histogram
+p2<- ggplot(merged, aes(life_expectancy)) + geom_histogram(breaks = clint, col="white") + 
+  scale_x_continuous(breaks = c(min(clint), median(clint), max(clint)),position = "top") + 
+  coord_flip() + scale_y_continuous(labels = NULL, breaks = NULL) +
+  ylab(NULL) +xlab(NULL) +
+   theme(plot.margin = margin(0.1,0,0,0.1, "in"),
+         axis.text = element_text(colour = "grey"),
+         panel.background = element_blank())
+
+#This is to arrange them together in the same graph
+grid.arrange(p1,p2, layout_matrix=rbind(c(1,1,1,2)))
+```
+
+
+# Quantile Maps {visibility="uncounted"}
+
+We are now ready to produce the map:
+
+```{r echo=FALSE, eval = TRUE, fig.width = 6.5, fig.height=2.4}
+#This is to produce the map
+p1<-ggplot(merged, aes(fill=life_expectancy)) + 
+  geom_sf() + theme_void() +
+  scale_fill_viridis_c(option = "viridis", # You can choose other options like "A", "B", or "D"
+                       direction = -1,   # Use -1 for reverse color order if needed
+                       breaks = clint,
+                       guide = guide_coloursteps(even.steps = FALSE,
+                                                 show.limits = TRUE,
+                                                 title = NULL,
+                                                 barheight = unit(5.3, "cm"),
+                                                 barwidth = unit(0.64, "cm"),
+                                                 label.position = "left"))
+
+#This is to produce the histogram
+p2<- ggplot(merged, aes(life_expectancy)) + geom_histogram(breaks = clint, col="white") + 
+  scale_x_continuous(breaks = c(min(clint), median(clint), max(clint)),position = "top") + 
+  coord_flip() + scale_y_continuous(labels = NULL, breaks = NULL) +
+  ylab(NULL) +xlab(NULL) +
+   theme(plot.margin = margin(0.1,0,0,0.1, "in"),
+         axis.text = element_text(colour = "grey"),
+         panel.background = element_blank())
+
+#This is to arrange them together in the same graph
+grid.arrange(p1,p2, layout_matrix=rbind(c(1,1,1,2)))
+```
+
+
+# Interquartile Maps
+
+-   We can also plot our continuous variables in a way that allows us to see the spread of the data
+
+-   For example, we can opt for a map that displays the interquartile range
+
+-   This would give us information about the median, the upper and lower quartiles, and outliers
+
+-   The goal is to understand the nature of the distribution, its shape, and range
+
+
+
+# Interquartile Maps
+
+-   We can reduce the boxplot map so that we only have three classes
+
+-   The map's purpose is to highlight the polygons covering the mid 50% range of values.
+
+```{r fig.width = 6.5, fig.height=2.4, echo=FALSE}
+clint <- classIntervals(merged$life_expectancy, style = "box")$brks
+#Identifying vector length
+number_values<-length(clint)
+
+
+p1<-ggplot(merged, aes(fill=life_expectancy)) + geom_sf() + theme_void() +
+  scale_fill_viridis_c(option = "viridis", # You can choose other options like "A", "B", or "D"
+                       direction = -1,   # Use -1 for reverse color order if needed
+                       breaks = clint,
+                       guide = guide_coloursteps(even.steps = FALSE,
+                                                 #show.limits = TRUE,
+                                                 title = NULL,
+                                                 barheight = unit(5.3, "cm"),
+                                                 barwidth = unit(0.64, "cm"),
+                                                 label.position = "left"))
+
+
+
+p2<- ggplot(merged, aes(life_expectancy)) + geom_boxplot() + 
+  scale_x_continuous(breaks = clint,
+                     position = "top") + 
+  coord_flip() + scale_y_continuous(labels = NULL, breaks = NULL) +
+  ylab(NULL) +xlab(NULL) +
+   theme(plot.margin = margin(0.1,0,0,0.1, "in"),
+         axis.text = element_text(colour = "grey"),
+         panel.background = element_blank())
+
+grid.arrange(p1,p2, layout_matrix=rbind(c(1,1,1,2)))
+```
+
+
+
+# Interquartile Maps
+
+This is how we obtain the map:
+
+
+# Interquartile Maps {auto-animate="true" visibility="uncounted"}
+
+These are the steps to produce the same map:
+
+```{r echo=TRUE, eval = TRUE}
+clint <- classIntervals(merged$life_expectancy, style = "box")$brks
+clint
+```
+
+
+# Interquartile Maps {auto-animate="true" visibility="uncounted"}
+
+These are the steps to produce the same map:
+
+```{r echo=TRUE, eval = TRUE}
+clint <- classIntervals(merged$life_expectancy, style = "box")$brks
+clint
+```
+
+Note the clint includes `-Inf` and `Inf`
+
+
+# Interquartile Maps {auto-animate="true" visibility="uncounted"}
+
+These are the steps to produce the same map:
+
+```{r echo=TRUE, eval = TRUE}
+clint <- classIntervals(merged$life_expectancy, style = "box")$brks
+clint
+```
+
+Note the clint includes `-Inf` and `Inf`
+
+This is because the dataset contains extreme values or outliers.
+
+
+# Interquartile Maps {auto-animate="true" visibility="uncounted"}
+
+These are the steps to produce the same map:
+
+```{r echo=TRUE, eval = TRUE}
+clint <- classIntervals(merged$life_expectancy, style = "box")$brks
+clint
+```
+
+Note the clint includes `-Inf` and `Inf`
+
+This is because the dataset contains extreme values or outliers.
+
+`-Inf` and `Inf` means that the first and last intervals are open-ended.
+
+They cover all values below the first quartile (Q1) and above the third quartile (Q3) respectively
+
+
+# Interquartile Maps {auto-animate="true" visibility="uncounted"}
+
+These are the steps to produce the same map:
+
+```{r echo=TRUE, eval = TRUE}
+clint <- classIntervals(merged$life_expectancy, style = "box")$brks
+#Identifying vector length
+number_values<-length(clint)
+number_values
+```
+
+# Interquartile Maps {auto-animate="true" visibility="uncounted"}
+
+These are the steps to produce the same map:
+
+```{r echo=TRUE, eval = TRUE}
+clint <- classIntervals(merged$life_expectancy, style = "box")$brks
+#Identifying vector length
+number_values<-length(clint)
+```
+
+
+# Interquartile Maps
+
+An this is how we make the map:
+
+```{r fig.width = 6.5, fig.height=2.4, echo=TRUE}
+#| code-line-numbers: "1-13|14-23|25"
+p1<-ggplot(merged, aes(fill=life_expectancy)) + geom_sf() + theme_void() +
+  scale_fill_viridis_c(option = "viridis", # You can choose other options like "A", "B", or "D"
+                       direction = -1,   # Use -1 for reverse color order if needed
+                       breaks = clint,
+                       guide = guide_coloursteps(even.steps = FALSE,
+                                                 #show.limits = TRUE,
+                                                 title = NULL,
+                                                 barheight = unit(5.3, "cm"),
+                                                 barwidth = unit(0.64, "cm"),
+                                                 label.position = "left"))
+
+
+
+p2<- ggplot(merged, aes(life_expectancy)) + geom_boxplot() + 
+  scale_x_continuous(breaks = clint,
+                     #labels = clint_resc, 
+                     position = "top") + 
+  coord_flip() + scale_y_continuous(labels = NULL, breaks = NULL) +
+  ylab(NULL) +xlab(NULL) +
+   theme(plot.margin = margin(0.1,0,0,0.1, "in"),
+         axis.text = element_text(colour = "grey"),
+         panel.background = element_blank())
+
+grid.arrange(p1,p2, layout_matrix=rbind(c(1,1,1,2)))
+```
+
+
+
+# Interquartile Maps
+
+An this is how we make the map:
+
+```{r fig.width = 6.5, fig.height=2.4, echo=FALSE}
+#| code-line-numbers: "1-14|15-23|25"
+p1<-ggplot(merged, aes(fill=life_expectancy)) + geom_sf() + theme_void() +
+  scale_fill_viridis_c(option = "viridis", # You can choose other options like "A", "B", or "D"
+                       direction = -1,   # Use -1 for reverse color order if needed
+                       breaks = clint,
+                       guide = guide_coloursteps(even.steps = FALSE,
+                                                 #show.limits = TRUE,
+                                                 title = NULL,
+                                                 barheight = unit(5.3, "cm"),
+                                                 barwidth = unit(0.64, "cm"),
+                                                 label.position = "left"))
+
+
+
+p2<- ggplot(merged, aes(life_expectancy)) + geom_boxplot() + 
+  scale_x_continuous(breaks = clint,
+                     position = "top") + 
+  coord_flip() + scale_y_continuous(labels = NULL, breaks = NULL) +
+  ylab(NULL) +xlab(NULL) +
+   theme(plot.margin = margin(0.1,0,0,0.1, "in"),
+         axis.text = element_text(colour = "grey"),
+         panel.background = element_blank())
+
+grid.arrange(p1,p2, layout_matrix=rbind(c(1,1,1,2)))
+```
+
+
+
+# Standard Deviation Map
+
+-   If the distribution of the data can be approximated following a normal distribution, the classification scheme can be broken into different standard deviation units
+
+
+```{r fig.width = 6.5, fig.height=2.4, echo=FALSE}
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+clint <- c(min(merged$life_expectancy, na.rm=T),
+           life_exp_mean - life_exp_sd, 
+           life_exp_mean - 0.5 *life_exp_sd, 
+           life_exp_mean, 
+           life_exp_mean + 0.5 * life_exp_sd, 
+           life_exp_mean + life_exp_sd,
+           max(merged$life_expectancy, na.rm=T))
+
+#Identifying vector length
+number_values<-length(clint)
+
+p1<-ggplot(merged, aes(fill=life_expectancy)) + geom_sf() + theme_void() +
+  scale_fill_viridis_c(option = "viridis", # You can choose other options like "A", "B", or "D"
+                       direction = -1,   # Use -1 for reverse color order if needed
+                       breaks = clint,
+                       guide = guide_coloursteps(even.steps = FALSE,
+                                                 #show.limits = TRUE,
+                                                 title = NULL,
+                                                 barheight = unit(5.3, "cm"),
+                                                 barwidth = unit(0.64, "cm"),
+                                                 label.position = "left"))
+
+p2<- ggplot(merged, aes(life_expectancy)) + 
+  geom_histogram(aes(y = after_stat(density)), bins = 10, 
+                 fill = "grey70",
+                 col = "white")+
+  coord_flip() +
+  geom_density(colour = "blue")+
+  scale_x_continuous(breaks = clint, 
+                     labels = c("Min", "-1SD" , "-0.5*SD", "Mean", "0.5*SD", "1SD", "Max"), 
+                     position = "top", limits = range(clint)) +
+ scale_y_continuous(labels = NULL, breaks = NULL) +
+  ylab(NULL) +xlab(NULL) +
+   theme(plot.margin = margin(0.1,0,0,0.1, "in"),
+         axis.text = element_text(colour = "grey"),
+         panel.background = element_blank())
+
+grid.arrange(p1,p2, layout_matrix=rbind(c(1,1,1,2)))
+```
+
+
+# Standard Deviation Map
+
+This is how we make that map:
+
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+```
+
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_sd
+```
+
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+```
+
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+life_exp_mean
+```
+
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+#Creating different steps
+step1<-min(merged$life_expectancy, na.rm=T)
+```
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+#Creating different steps
+step1<-min(merged$life_expectancy, na.rm=T)
+step1
+```
+
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+#Creating different steps
+step1<-min(merged$life_expectancy, na.rm=T)
+step2<-life_exp_mean - life_exp_sd
+```
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+#Creating different steps
+step1<-min(merged$life_expectancy, na.rm=T)
+step2<-life_exp_mean - life_exp_sd
+step2
+```
+
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+#Creating different steps
+step1<-min(merged$life_expectancy, na.rm=T)
+step2<-life_exp_mean - life_exp_sd
+step3<-life_exp_mean - 0.5*life_exp_sd
+```
+
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+#Creating different steps
+step1<-min(merged$life_expectancy, na.rm=T)
+step2<-life_exp_mean - life_exp_sd
+step3<-life_exp_mean - 0.5*life_exp_sd
+step3
+```
+
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+#Creating different steps
+step1<-min(merged$life_expectancy, na.rm=T)
+step2<-life_exp_mean - life_exp_sd
+step3<-life_exp_mean - 0.5*life_exp_sd
+step4<-life_exp_mean
+```
+
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+#Creating different steps
+step1<-min(merged$life_expectancy, na.rm=T)
+step2<-life_exp_mean - life_exp_sd
+step3<-life_exp_mean - 0.5*life_exp_sd
+step4<-life_exp_mean
+step4
+```
+
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+#Creating different steps
+step1<-min(merged$life_expectancy, na.rm=T)
+step2<-life_exp_mean - life_exp_sd
+step3<-life_exp_mean - 0.5*life_exp_sd
+step4<-life_exp_mean
+step5<-life_exp_mean + 0.5*life_exp_sd
+```
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+#Creating different steps
+step1<-min(merged$life_expectancy, na.rm=T)
+step2<-life_exp_mean - life_exp_sd
+step3<-life_exp_mean - 0.5*life_exp_sd
+step4<-life_exp_mean
+step5<-life_exp_mean + 0.5*life_exp_sd
+step5
+```
+
+
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+#Creating different steps
+step1<-min(merged$life_expectancy, na.rm=T)
+step2<-life_exp_mean - life_exp_sd
+step3<-life_exp_mean - 0.5*life_exp_sd
+step4<-life_exp_mean
+step5<-life_exp_mean + 0.5*life_exp_sd
+step6<-life_exp_mean + life_exp_sd
+```
+
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+#Creating different steps
+step1<-min(merged$life_expectancy, na.rm=T)
+step2<-life_exp_mean - life_exp_sd
+step3<-life_exp_mean - 0.5*life_exp_sd
+step4<-life_exp_mean
+step5<-life_exp_mean + 0.5*life_exp_sd
+step6<-life_exp_mean + life_exp_sd
+step6
+```
+
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+#Creating different steps
+step1<-min(merged$life_expectancy, na.rm=T)
+step2<-life_exp_mean - life_exp_sd
+step3<-life_exp_mean - 0.5*life_exp_sd
+step4<-life_exp_mean
+step5<-life_exp_mean + 0.5*life_exp_sd
+step6<-life_exp_mean + life_exp_sd
+step7<-max(merged$life_expectancy, na.rm=T)
+```
+
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+#Creating different steps
+step1<-min(merged$life_expectancy, na.rm=T)
+step2<-life_exp_mean - life_exp_sd
+step3<-life_exp_mean - 0.5*life_exp_sd
+step4<-life_exp_mean
+step5<-life_exp_mean + 0.5*life_exp_sd
+step6<-life_exp_mean + life_exp_sd
+step7<-max(merged$life_expectancy, na.rm=T)
+step7
+```
+
+
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+#Creating different steps
+step1<-min(merged$life_expectancy, na.rm=T)
+step2<-life_exp_mean - life_exp_sd
+step3<-life_exp_mean - 0.5*life_exp_sd
+step4<-life_exp_mean
+step5<-life_exp_mean + 0.5*life_exp_sd
+step6<-life_exp_mean + life_exp_sd
+step7<-max(merged$life_expectancy, na.rm=T)
+
+clint <- c(step1,
+           step2, 
+           step3, 
+           step4, 
+           step5, 
+           step6,
+           step7)
+```
+
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+#Creating different steps
+step1<-min(merged$life_expectancy, na.rm=T)
+step2<-life_exp_mean - life_exp_sd
+step3<-life_exp_mean - 0.5*life_exp_sd
+step4<-life_exp_mean
+step5<-life_exp_mean + 0.5*life_exp_sd
+step6<-life_exp_mean + life_exp_sd
+step7<-max(merged$life_expectancy, na.rm=T)
+
+clint <- c(step1,
+           step2, 
+           step3, 
+           step4, 
+           step5, 
+           step6,
+           step7)
+clint
+```
+
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+#Creating different steps
+step1<-min(merged$life_expectancy, na.rm=T)
+step2<-life_exp_mean - life_exp_sd
+step3<-life_exp_mean - 0.5*life_exp_sd
+step4<-life_exp_mean
+step5<-life_exp_mean + 0.5*life_exp_sd
+step6<-life_exp_mean + life_exp_sd
+step7<-max(merged$life_expectancy, na.rm=T)
+
+clint <- c(min(merged$life_expectancy, na.rm=T),
+           life_exp_mean - life_exp_sd, 
+           life_exp_mean - 0.5 *life_exp_sd, 
+           life_exp_mean, 
+           life_exp_mean + 0.5 * life_exp_sd, 
+           life_exp_mean + life_exp_sd,
+           max(merged$life_expectancy, na.rm=T))
+```
+
+
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+#Creating different steps
+step1<-min(merged$life_expectancy, na.rm=T)
+step2<-life_exp_mean - life_exp_sd
+step3<-life_exp_mean - 0.5*life_exp_sd
+step4<-life_exp_mean
+step5<-life_exp_mean + 0.5*life_exp_sd
+step6<-life_exp_mean + life_exp_sd
+step7<-max(merged$life_expectancy, na.rm=T)
+
+clint <- c(min(merged$life_expectancy, na.rm=T),
+           life_exp_mean - life_exp_sd, 
+           life_exp_mean - 0.5 *life_exp_sd, 
+           life_exp_mean, 
+           life_exp_mean + 0.5 * life_exp_sd, 
+           life_exp_mean + life_exp_sd,
+           max(merged$life_expectancy, na.rm=T))
+clint
+```
+
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+#Creating different steps
+clint <- c(min(merged$life_expectancy, na.rm=T),
+           life_exp_mean - life_exp_sd, 
+           life_exp_mean - 0.5 *life_exp_sd, 
+           life_exp_mean, 
+           life_exp_mean + 0.5 * life_exp_sd, 
+           life_exp_mean + life_exp_sd,
+           max(merged$life_expectancy, na.rm=T))
+
+#Identifying vector length
+number_values<-length(clint)
+```
+
+
+# Standard Deviation Map {auto-animate="true" visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+#Calculating SD and Mean
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+#Creating different steps
+clint <- c(min(merged$life_expectancy, na.rm=T),
+           life_exp_mean - life_exp_sd, 
+           life_exp_mean - 0.5 *life_exp_sd, 
+           life_exp_mean, 
+           life_exp_mean + 0.5 * life_exp_sd, 
+           life_exp_mean + life_exp_sd,
+           max(merged$life_expectancy, na.rm=T))
+
+#Identifying vector length
+number_values<-length(clint)
+number_values
+```
+
+
+# Standard Deviation Map {visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+p1<-ggplot(merged, aes(fill=life_expectancy)) + geom_sf() + theme_void() +
+  scale_fill_viridis_c(option = "viridis", # You can choose other options like "A", "B", or "D"
+                       direction = -1,   # Use -1 for reverse color order if needed
+                       breaks = clint,
+                       guide = guide_coloursteps(even.steps = FALSE,
+                                                 #show.limits = TRUE,
+                                                 title = NULL,
+                                                 barheight = unit(5.3, "cm"),
+                                                 barwidth = unit(0.64, "cm"),
+                                                 label.position = "left"))
+```
+
+# Standard Deviation Map {visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=FALSE}
+p1<-ggplot(merged, aes(fill=life_expectancy)) + geom_sf() + theme_void() +
+  scale_fill_viridis_c(option = "viridis", # You can choose other options like "A", "B", or "D"
+                       direction = -1,   # Use -1 for reverse color order if needed
+                       breaks = clint,
+                       guide = guide_coloursteps(even.steps = FALSE,
+                                                 #show.limits = TRUE,
+                                                 title = NULL,
+                                                 barheight = unit(5.3, "cm"),
+                                                 barwidth = unit(0.64, "cm"),
+                                                 label.position = "left"))
+p1
+```
+
+
+# Standard Deviation Map {visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=TRUE}
+p2<- ggplot(merged, aes(life_expectancy)) + 
+  geom_histogram(aes(y = after_stat(density)), bins = 10, 
+                 fill = "grey70",
+                 col = "white")+
+  coord_flip() +
+  geom_density(colour = "blue")+
+  scale_x_continuous(breaks = clint, 
+                     labels = c("Min", "-1SD" , "-0.5*SD", "Mean", "0.5*SD", "1SD", "Max"), 
+                     position = "top", limits = range(clint)) +
+ scale_y_continuous(labels = NULL, breaks = NULL) +
+  ylab(NULL) +xlab(NULL) +
+   theme(plot.margin = margin(0.1,0,0,0.1, "in"),
+         axis.text = element_text(colour = "grey"),
+         panel.background = element_blank())
+```
+
+# Standard Deviation Map {visibility="uncounted"}
+
+This is how we make that map:
+
+```{r, echo=FALSE}
+p2<- ggplot(merged, aes(life_expectancy)) + 
+  geom_histogram(aes(y = after_stat(density)), bins = 10, 
+                 fill = "grey70",
+                 col = "white")+
+  coord_flip() +
+  geom_density(colour = "blue")+
+  scale_x_continuous(breaks = clint, 
+                     labels = c("Min", "-1SD" , "-0.5*SD", "Mean", "0.5*SD", "1SD", "Max"), 
+                     position = "top", limits = range(clint)) +
+ scale_y_continuous(labels = NULL, breaks = NULL) +
+  ylab(NULL) +xlab(NULL) +
+   theme(plot.margin = margin(0.1,0,0,0.1, "in"),
+         axis.text = element_text(colour = "grey"),
+         panel.background = element_blank())
+p2
+```
+
+
+# Standard Deviation Map {visibility="uncounted"}
+
+This is how we make that map:
+
+````markdown
+`r ''````{r , fig.width = 6.5, fig.height=2.4}
+library(gridExtra)
+#Arranging the Map and Histogram together
+grid.arrange(p1,p2, layout_matrix=rbind(c(1,1,1,2)))
+`r ''````
+````
+
+# Standard Deviation Map {visibility="uncounted"}
+
+This is how we make that map:
+
+```{r fig.width = 6.5, fig.height=2.4, echo=FALSE}
+grid.arrange(p1,p2, layout_matrix=rbind(c(1,1,1,2)))
+```
+
+# Outlier Maps
+
+-   So far we looked at the entire distribution of values
+
+-   However, we may want to place emphasis on extreme values
+
+-   We can produce outlier maps with
+
+    -   Boxplot
+    -   Standard deviation
+    -   Quantiles
+
+
+# Outlier Maps
+
+```{r fig.width = 6.5, fig.height=2.4, echo=FALSE}
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+clint <- c(min(merged$life_expectancy, na.rm=T),
+           life_exp_mean - life_exp_sd, 
+           life_exp_mean - 0.5 *life_exp_sd, 
+           life_exp_mean, 
+           life_exp_mean + 0.5 * life_exp_sd, 
+           life_exp_mean + life_exp_sd,
+           max(merged$life_expectancy, na.rm=T))
+
+
+#Identifying vector length
+number_values<-length(clint)
+
+```
+
+```{r fig.width = 6.5, fig.height=2.4, echo=FALSE}
+p1 <- ggplot(merged, aes(fill=life_expectancy)) + 
+  geom_sf(linewidth=0.1, color="grey30") + 
+  theme_void() +
+  scale_fill_stepsn(colors = c("#1A9850", 
+                               "#f7f7f7", "#f7f7f7","#f7f7f7",
+                               "#D73027") ,
+                    breaks = clint,
+                    limits = range(clint),
+                    guide = guide_coloursteps(even.steps = FALSE,
+                                              show.limits = FALSE,
+                                              title = NULL,
+                                              barheight = unit(2.0, "in"),
+                                              barwidth = unit(0.15, "in"),
+                                              label.position = "left")) 
+
+
+p2<- ggplot(merged, aes(life_expectancy)) + 
+  geom_histogram(aes(y = after_stat(density)), bins = 10, 
+                 fill = "grey70",
+                 col = "white")+
+  coord_flip() +
+  geom_density(colour = "blue")+
+  scale_x_continuous(breaks = clint, 
+                     labels = c("Min", "-1SD" , "-0.5*SD", "Mean", "0.5*SD", "1SD", "Max"), 
+                     position = "top", limits = range(clint)) +
+ scale_y_continuous(labels = NULL, breaks = NULL) +
+  ylab(NULL) +xlab(NULL) +
+   theme(plot.margin = margin(0.1,0,0,0.1, "in"),
+         axis.text = element_text(colour = "grey"),
+         panel.background = element_blank())
+
+grid.arrange(p1,p2, layout_matrix=rbind(c(1,1,1,2)))
+```
+
+# Outlier Maps
+
+Or even better:
+
+```{r fig.width = 6.5, fig.height=2.4, echo=FALSE}
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+clint <- c(min(merged$life_expectancy, na.rm=T),
+           life_exp_mean - life_exp_sd, 
+           life_exp_mean - 0.5 *life_exp_sd, 
+           life_exp_mean, 
+           life_exp_mean + 0.5 * life_exp_sd, 
+           life_exp_mean + life_exp_sd,
+           max(merged$life_expectancy, na.rm=T))
+
+
+#Making the breaks
+breaks_int = clint[c(1, 2, 6,7)]
+```
+
+```{r fig.width = 6.5, fig.height=2.4, echo=FALSE}
+p3 <- ggplot(merged, aes(fill=life_expectancy)) + 
+  geom_sf(linewidth=0.1, color="grey30") + 
+  theme_void() +
+  scale_fill_stepsn(colors = c("#1A9850", 
+                               "#f7f7f7", "#f7f7f7","#f7f7f7",
+                               "#D73027") ,
+                    breaks = clint[c(1, 2, 6,7)],
+                    #values = scales::rescale(clint[c(1, 2, 6,7)], c(0,1)),
+                    guide = guide_coloursteps(even.steps = FALSE,
+                                              show.limits = FALSE,
+                                              title = NULL,
+                                              barheight = unit(2.0, "in"),
+                                              barwidth = unit(0.15, "in"),
+                                              label.position = "left")) 
+
+
+p4<- ggplot(merged, aes(life_expectancy)) + 
+  geom_histogram(aes(y = after_stat(density)), bins = 10, 
+                 fill = "grey70",
+                 col = "white")+
+  coord_flip() +
+  geom_density(colour = "blue")+
+  scale_x_continuous(breaks = clint, 
+                     labels = c("Min", "-1SD" , "-0.5*SD", "Mean", "0.5*SD", "1SD", "Max"), 
+                     position = "top", limits = range(clint)) +
+ scale_y_continuous(labels = NULL, breaks = NULL) +
+  ylab(NULL) +xlab(NULL) +
+   theme(plot.margin = margin(0.1,0,0,0.1, "in"),
+         axis.text = element_text(colour = "grey"),
+         panel.background = element_blank())
+
+grid.arrange(p3,p4, layout_matrix=rbind(c(1,1,1,2)))
+```
+
+
+# Outlier Maps
+
+Notice the difference
+
+```{r fig.width = 6.5, fig.height=4.8, echo=FALSE}
+#grid.arrange(p1,p2, layout_matrix=rbind(c(1,1,1,2)))
+#grid.arrange(p3,p4, layout_matrix=rbind(c(1,1,1,2)))
+layout_matrix <- rbind(c(2, 1), c(2, 1))
+grid.arrange(p1, p2, p3, p4, widths = c(2, 1))
+```
+
+# Outlier Maps
+
+This is how we obtain that map:
+
+
+# Outlier Maps {auto-animate="true" visibility="uncounted"}
+
+This is how we obtain that map:
+
+```{r fig.width = 6.5, fig.height=2.4, echo=TRUE, eval=FALSE}
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+clint <- c(min(merged$life_expectancy, na.rm=T),
+           life_exp_mean - life_exp_sd, 
+           life_exp_mean - 0.5 *life_exp_sd, 
+           life_exp_mean, 
+           life_exp_mean + 0.5 * life_exp_sd, 
+           life_exp_mean + life_exp_sd,
+           max(merged$life_expectancy, na.rm=T))
+```
+
+
+# Outlier Maps {auto-animate="true" visibility="uncounted"}
+
+This is how we obtain that map:
+
+```{r fig.width = 6.5, fig.height=2.4, echo=TRUE, eval=TRUE}
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+clint <- c(min(merged$life_expectancy, na.rm=T),
+           life_exp_mean - life_exp_sd, 
+           life_exp_mean - 0.5 *life_exp_sd, 
+           life_exp_mean, 
+           life_exp_mean + 0.5 * life_exp_sd, 
+           life_exp_mean + life_exp_sd,
+           max(merged$life_expectancy, na.rm=T))
+clint
+```
+
+
+
+# Outlier Maps {auto-animate="true" visibility="uncounted"}
+
+This is how we obtain that map:
+
+```{r fig.width = 6.5, fig.height=2.4, echo=TRUE, eval=FALSE}
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+clint <- c(min(merged$life_expectancy, na.rm=T),
+           life_exp_mean - life_exp_sd, 
+           life_exp_mean - 0.5 *life_exp_sd, 
+           life_exp_mean, 
+           life_exp_mean + 0.5 * life_exp_sd, 
+           life_exp_mean + life_exp_sd,
+           max(merged$life_expectancy, na.rm=T))
+
+#Making the breaks
+breaks_int = clint[c(1, 2, 6,7)]
+```
+
+
+# Outlier Maps {auto-animate="true" visibility="uncounted"}
+
+This is how we obtain that map:
+
+```{r fig.width = 6.5, fig.height=2.4, echo=TRUE, eval=TRUE}
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+clint <- c(min(merged$life_expectancy, na.rm=T),
+           life_exp_mean - life_exp_sd, 
+           life_exp_mean - 0.5 *life_exp_sd, 
+           life_exp_mean, 
+           life_exp_mean + 0.5 * life_exp_sd, 
+           life_exp_mean + life_exp_sd,
+           max(merged$life_expectancy, na.rm=T))
+
+#Making the breaks
+breaks_int = clint[c(1, 2, 6,7)]
+breaks_int
+```
+
+
+# Outlier Maps {auto-animate="true" visibility="uncounted"}
+
+This is how we obtain that map:
+
+```{r fig.width = 6.5, fig.height=2.4, echo=TRUE, eval=TRUE}
+life_exp_sd <- sd(merged$life_expectancy, na.rm=T)
+life_exp_mean <- mean(merged$life_expectancy, na.rm=T)
+
+clint <- c(min(merged$life_expectancy, na.rm=T),
+           life_exp_mean - life_exp_sd, 
+           life_exp_mean - 0.5 *life_exp_sd, 
+           life_exp_mean, 
+           life_exp_mean + 0.5 * life_exp_sd, 
+           life_exp_mean + life_exp_sd,
+           max(merged$life_expectancy, na.rm=T))
+
+#Making the breaks
+breaks_int = clint[c(1, 2, 6,7)]
+breaks_int
+```
+
+This is how it compares to `clint`:
+```{r fig.width = 6.5, fig.height=2.4, echo=TRUE, eval=TRUE}
+clint
+```
+
+# Outlier Maps {auto-animate="true" visibility="uncounted"}
+
+This is how we obtain that map:
+
+```{r fig.width = 6.5, fig.height=2.4, echo=TRUE, eval=TRUE}
+p3 <- ggplot(merged, aes(fill=life_expectancy)) + 
+  geom_sf(linewidth=0.1, color="grey30") + 
+  theme_void() +
+  scale_fill_stepsn(colors = c("#1A9850", 
+                               "#f7f7f7", "#f7f7f7","#f7f7f7",
+                               "#D73027") ,
+                    breaks = breaks_int,
+                    guide = guide_coloursteps(even.steps = FALSE,
+                                              show.limits = FALSE,
+                                              title = NULL,
+                                              barheight = unit(2.0, "in"),
+                                              barwidth = unit(0.15, "in"),
+                                              label.position = "left")) 
+
+```
+
+
+# Outlier Maps {auto-animate="true" visibility="uncounted"}
+
+This is how we obtain that map:
+
+```{r fig.width = 6.5, fig.height=2.4, echo=TRUE, eval=TRUE}
+
+p4<- ggplot(merged, aes(life_expectancy)) + 
+  geom_histogram(aes(y = after_stat(density)), bins = 10, 
+                 fill = "grey70",
+                 col = "white")+
+  coord_flip() +
+  geom_density(colour = "blue")+
+  scale_x_continuous(breaks = clint, 
+                     labels = c("Min", "-1SD" , "-0.5*SD", "Mean", "0.5*SD", "1SD", "Max"), 
+                     position = "top", limits = range(clint)) +
+ scale_y_continuous(labels = NULL, breaks = NULL) +
+  ylab(NULL) +xlab(NULL) +
+   theme(plot.margin = margin(0.1,0,0,0.1, "in"),
+         axis.text = element_text(colour = "grey"),
+         panel.background = element_blank())
+
+```
+
+
+# Outlier Maps {auto-animate="true" visibility="uncounted"}
+
+This is how we obtain that map:
+
+```{r fig.width = 6.5, fig.height=2.4, echo=TRUE, eval=TRUE}
+grid.arrange(p3,p4, layout_matrix=rbind(c(1,1,1,2)))
+```
+
+
+# Conclusion
+
+In this lecture we learned how to map:
+
+* points
+* lines
+* polygons
+
+We also learned how to make choropleth maps of different types:
+
+* with histograms
+* quantile maps
+* interquartile maps
+* standard deviation maps
+* outlier maps
+
+<!--
+# Standard Deviation Outlier Choropleth Map
+
+These are the steps to produce that map.
+
+```{r}
+p1 <- ggplot(merged, aes(fill=life_expectancy)) + 
+  geom_sf(linewidth=0.1, color="grey30") + theme_void() +
+  scale_fill_stepsn(colors = c("#1A9850", 
+                               "#f7f7f7", "#f7f7f7","#f7f7f7",
+                               "#D73027") ,
+                    #breaks = clint[1:(length(clint)) ],
+                    breaks = clint[c(1, 2, 6,7)],
+                    values = scales::rescale(clint[c(1, 2, 6,7)], c(0,1)),
+                    limits = range(clint),
+                    guide = guide_coloursteps(even.steps = FALSE,
+                                              show.limits = FALSE,
+                                              title = NULL,
+                                              barheight = unit(2.0, "in"),
+                                              barwidth = unit(0.15, "in"),
+                                              label.position = "left")) 
+p1
+```
+
+```{r fig.width = 6.5, fig.height=2.4, echo=FALSE}
+p2<- ggplot(merged, aes(life_expectancy)) + 
+  geom_histogram(aes(y = after_stat(density)), bins = 10, 
+                 fill = "grey70",
+                 col = "white")+
+  coord_flip() +
+  geom_density(colour = "blue")+
+  scale_x_continuous(breaks = clint, 
+                     labels = c("Min", "-1SD" , "-0.5*SD", "Mean", "0.5*SD", "1SD", "Max"), 
+                     position = "top", limits = range(clint)) +
+ scale_y_continuous(labels = NULL, breaks = NULL) +
+  ylab(NULL) +xlab(NULL) +
+   theme(plot.margin = margin(0.1,0,0,0.1, "in"),
+         axis.text = element_text(colour = "grey"),
+         panel.background = element_blank())
+
+grid.arrange(p1,p2, layout_matrix=rbind(c(1,1,1,2)))
+```
+
+
+#Left at: https://mgimond.github.io/Spatial/statistical-maps.html
+Figure 5.6: Example of a standard deviation map.
+Backend: https://github.com/mgimond/Spatial/blob/main/05-statistical-maps.Rmd
+
+
+Left at: https://r-spatial.org/book/01-hello.html
+
+very relevant: https://eda.seas.gwu.edu/2022-Fall/class/11-maps/11-maps.pdf left at: https://semba-blog.netlify.app/01/26/2020/world-map-and-map-projections/ left at: https://mgimond.github.io/Spatial/chp09_0.html and: https://github.com/mgimond/Spatial_pre2021/blob/master/09-Coordinate-systems.Rmd
+
+
+#Source: https://www.youtube.com/watch?v=5jni8uZcyLg-->
